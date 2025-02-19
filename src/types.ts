@@ -1,5 +1,5 @@
 // types.ts
-import type { Message, ContentBlock, TextBlock, ToolUseBlock, Usage } from '@anthropic-ai/sdk/resources/messages';
+import type { Message, ContentBlock, TextBlock, ToolUseBlock, Usage } from '@anthropic-ai/sdk/resources/messages/index.js';
 
 export type ModelType = 'opus' | 'sonnet' | 'haiku-3' | 'haiku-3-5';
 

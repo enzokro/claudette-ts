@@ -1,7 +1,7 @@
 // client.ts
 import { Anthropic } from '@anthropic-ai/sdk';
-import type { Message, MessageCreateParams } from '@anthropic-ai/sdk/resources/messages';
-import { ClientOptions, MODEL_TYPES, PRICING, calculateCost, contents, findBlock } from './types';
+import type { Message, MessageCreateParams } from '@anthropic-ai/sdk/resources/messages/index.js';
+import { ClientOptions, MODEL_TYPES, PRICING, calculateCost, contents, findBlock } from './types.js';
 
 import dotenv from 'dotenv'; 
 dotenv.config();  // Load environment variables from .env file

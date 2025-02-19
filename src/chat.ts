@@ -1,7 +1,7 @@
 // chat.ts
-import type { Message, MessageCreateParams, ContentBlock } from '@anthropic-ai/sdk/resources/messages';
-import { Client } from './client';
-import { ChatOptions, contents } from './types'
+import type { Message, MessageCreateParams, ContentBlock } from '@anthropic-ai/sdk/resources/messages/index.js';
+import { Client } from './client.js';
+import { ChatOptions, contents } from './types.js'
 
 type Role = 'user' | 'assistant';
 
