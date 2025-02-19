@@ -1,14 +1,17 @@
-# claudette-ts
+# Claudette-TS
 
-A TypeScript wrapper for Anthropic's Node.js SDK that makes Claude API interactions simpler and more ergonomic.
+A TypeScript library for building robust Claude 3 applications with tool use support. Built on top of the official Anthropic SDK, Claudette-TS provides a higher-level interface for complex interactions with Claude, including multi-step tool use, conversation management, and cost tracking.
 
 ## Features
 
-- Stateful chat interface with history tracking
-- Automatic token usage and cost calculation
-- Streaming support
-- Simple tool use integration
-- Environment variable configuration
+- 🛠 **Robust Tool Support**: Seamless integration of function calling with proper type safety
+- 💬 **Conversation Management**: Built-in history tracking and context management
+- 💰 **Cost Tracking**: Automatic token counting and cost calculation for all models
+- 🔄 **Multi-step Tool Interactions**: Automated handling of complex tool-use sequences
+- 🌊 **Streaming Support**: Built-in handling of streaming responses
+- 💾 **Cache Support**: Efficient handling of conversation context with Claude's caching system
+- 📝 **System Prompts**: Easy configuration of system-level instructions
+- 🔒 **Type Safety**: Full TypeScript support with proper types for all Claude 3 features
 
 ## Installation
 
@@ -16,81 +19,191 @@ A TypeScript wrapper for Anthropic's Node.js SDK that makes Claude API interacti
 npm install claudette-ts
 ```
 
-You'll need to set the `ANTHROPIC_API_KEY` environment variable to your Anthropic API key.
-
-## Getting Started
+## Quick Start
 
 ```typescript
 import { Chat } from 'claudette-ts';
 
-// Basic usage
+// Basic chat without tools
 const chat = new Chat({ 
   model: 'claude-3-opus-20240229',
   systemPrompt: 'You are a helpful assistant.'
 });
 
-// Send a message
+// Send a simple message
 const response = await chat.send('Hello, how are you?');
 console.log(response);
 
-// With streaming
-const streamingResponse = await chat.send('Tell me a story', { stream: true });
-console.log(streamingResponse);
+// Check the cost
+console.log(`Cost so far: $${chat.cost}`);
 ```
 
-## Tool Use
-
-Claudette-ts makes it easy to use Claude's function calling capabilities:
+## Tool Usage
 
 ```typescript
-const options = [
-  "Option 1",
-  "Option 2",
-  "Option 3"
-];
+import { Chat, Tool } from 'claudette-ts';
 
-function list_options() {
-  console.log("Calling list_options");
-  options.forEach(option => {
-    console.log(option);
-  });
-}
+// Define your tool
+const listOptionsTool: Tool = {
+  name: 'list_options',
+  description: 'Lists all available options.',
+  input_schema: {
+    type: 'object',
+    properties: {},
+    required: []
+  }
+};
 
-// With tools
+// Create a chat with tools
 const chatWithTools = new Chat({
   model: 'claude-3-opus-20240229',
-  tools: [list_options],
-  systemPrompt: 'You are a helpful assistant with tools, show me the options.'
+  tools: [listOptionsTool],
+  systemPrompt: 'You are a helpful assistant with tools.'
 });
 
-const toolResponse = await chatWithTools.send('Show me the available options', {
-  tool_choice: { type: 'any' }
-});
-console.log(toolResponse);
+// Implement the tool
+function list_options(input: any) {
+  const options = ["Option 1", "Option 2", "Option 3"];
+  return options.join('\n');
+}
+
+// Register the tool implementation
+chatWithTools.registerTool('list_options', list_options);
+
+// Use toolloop for multi-step tool interactions
+const response = await chatWithTools.toolloop(
+  'What options are available? After listing them, tell me which one you like best.',
+  {
+    traceFunc: (messages) => {
+      console.log('Tool interaction:', messages);
+    }
+  }
+);
 ```
 
-## Cost Tracking
+## Advanced Features
 
-The Chat class automatically tracks token usage and calculates costs based on the current model's pricing:
+### Streaming Support
 
 ```typescript
-console.log(chat.cost); // Shows current cost in USD
+const response = await chat.send('Tell me a story', { 
+  stream: true 
+});
 ```
 
-## Environment Variables
+### Cache Support
 
-Create a `.env` file in your project root:
-
+```typescript
+const chat = new Chat({ 
+  model: 'claude-3-opus-20240229',
+  cache: true  // Enable conversation caching
+});
 ```
-ANTHROPIC_API_KEY=your-api-key-here
+
+### Custom Tool Implementation
+
+```typescript
+interface Calculator {
+  add(a: number, b: number): number;
+}
+
+const calculatorTool: Tool = {
+  name: 'calculator',
+  description: 'Performs calculations',
+  input_schema: {
+    type: 'object',
+    properties: {
+      a: { type: 'number' },
+      b: { type: 'number' }
+    },
+    required: ['a', 'b']
+  }
+};
+
+const calculator: Calculator = {
+  add(a: number, b: number) {
+    return a + b;
+  }
+};
+
+chat.registerTool('calculator', calculator.add.bind(calculator));
 ```
 
-## Supported Models
+### Cost Tracking
 
-- claude-3-opus-20240229
-- claude-3-5-sonnet-20241022
-- claude-3-haiku-20240307
-- claude-3-5-haiku-20241022
+```typescript
+// Track costs across conversations
+console.log(`Current conversation cost: $${chat.cost}`);
+
+// Get detailed usage information
+console.log(chat.toString());
+```
+
+## API Reference
+
+### Chat Class
+
+The main class for interacting with Claude.
+
+```typescript
+interface ChatOptions {
+  model: string;
+  systemPrompt?: string;
+  tools?: Tool[];
+  temperature?: number;
+  cache?: boolean;
+}
+
+class Chat {
+  constructor(options: ChatOptions);
+  
+  // Send a message to Claude
+  async send(prompt?: string, options?: MessageCreateParams): Promise<Message>;
+  
+  // Handle multi-step tool interactions
+  async toolloop(prompt?: string, options?: ToolLoopOptions): Promise<Message>;
+  
+  // Register a tool implementation
+  registerTool(name: string, implementation: Function): void;
+  
+  // Get the current cost of the conversation
+  get cost(): number;
+}
+```
+
+### Tool Types
+
+```typescript
+interface Tool {
+  name: string;
+  description: string;
+  input_schema: {
+    type: 'object';
+    properties: Record<string, any>;
+    required: string[];
+  };
+}
+
+interface ToolLoopOptions {
+  maxSteps?: number;
+  traceFunc?: (messages: Message[]) => void;
+  contFunc?: (message: Message) => boolean;
+}
+```
+
+## Models and Pricing
+
+Claudette-TS supports all Claude 3 models with automatic cost calculation:
+
+| Model | Input (per million tokens) | Output (per million tokens) |
+|-------|---------------------------|----------------------------|
+| Claude 3 Opus | $15 | $75 |
+| Claude 3 Sonnet | $3 | $15 |
+| Claude 3 Haiku | $0.25 | $1.25 |
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
