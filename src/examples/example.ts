@@ -4,7 +4,7 @@ import type { Tool } from '../types.js';
 async function sample_usage() {
   // Simple usage
   const chat = new Chat({ 
-    model: 'claude-3-opus-20240229',
+    model: 'claude-3-haiku-20240307',
     systemPrompt: 'You are a helpful assistant.'
   });
 
