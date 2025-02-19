@@ -1,0 +1,20 @@
+{
+  "name": "claudette-ts",
+  "version": "1.0.0",
+  "description": "Claudette for Typescript",
+  "license": "MIT",
+  "author": "cck",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.3",
+    "dotenv": "^16.4.7"
+  }
+}

@@ -21,3 +21,6 @@ references/
 
 # Data things
 *.csv
+
+# Node modules
+node_modules/
