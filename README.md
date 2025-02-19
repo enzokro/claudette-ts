@@ -70,9 +70,9 @@ const response = await chatWithTools.toolloop(
 );
 ```
 
-## Advanced Features
+## Other Features
 
-### Streaming Support
+### Streaming Requests
 
 ```typescript
 const response = await chat.send('Tell me a story', { 
@@ -80,7 +80,7 @@ const response = await chat.send('Tell me a story', {
 });
 ```
 
-### Cache Support
+### Prompt Caching
 
 ```typescript
 const chat = new Chat({ 
@@ -92,13 +92,16 @@ const chat = new Chat({
 ### Custom Tool Implementation
 
 ```typescript
-interface Calculator {
-  add(a: number, b: number): number;
+// Define the tool implementation function
+function sum(input: { a: number, b: number }) {
+  console.log("Calling sum with input:", input);
+  return input.a + input.b;
 }
 
-const calculatorTool: Tool = {
-  name: 'calculator',
-  description: 'Performs calculations',
+// Define the tool schema
+const sumTool: Tool = {
+  name: 'sum',
+  description: 'Adds two numbers together. Use this tool when the user wants to add two numbers.',
   input_schema: {
     type: 'object',
     properties: {
@@ -109,13 +112,28 @@ const calculatorTool: Tool = {
   }
 };
 
-const calculator: Calculator = {
-  add(a: number, b: number) {
-    return a + b;
-  }
-};
+// Create a chat instance with the tool
+const chatWithTools = new Chat({
+  model: 'claude-3-opus-20240229',
+  tools: [sumTool],
+  systemPrompt: 'You are a helpful assistant with tools. When asked to add numbers, use the sum tool.'
+});
 
-chat.registerTool('calculator', calculator.add.bind(calculator));
+// Register the tool implementation
+chatWithTools.registerTool('sum', sum);
+
+// Example usage with toolloop and tracing
+const response = await chatWithTools.toolloop(
+  'What is 5 plus 7?',
+  {
+    traceFunc: (messages) => {
+      console.log('Tool interaction:', messages);
+    }
+  }
+);
+
+console.log('\nFinal response:', response);
+console.log('Tool chat cost:', chatWithTools.cost);
 ```
 
 ### Cost Tracking
@@ -130,7 +148,7 @@ console.log(chat.toString());
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions welcome! Please feel free to submit a Pull Request.
 
 ## License
 
