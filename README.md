@@ -124,7 +124,7 @@ chatWithTools.registerTool('sum', sum);
 
 // Example usage with toolloop and tracing
 const response = await chatWithTools.toolloop(
-  'What is 5 plus 7?',
+  'What is 11 plus 5 plus 7?',
   {
     traceFunc: (messages) => {
       console.log('Tool interaction:', messages);
