@@ -85,7 +85,7 @@ const response = await chat.send('Tell me a story', {
 ```typescript
 const chat = new Chat({ 
   model: 'claude-3-opus-20240229',
-  cache: true  // Enable conversation caching
+  cache: true  // Enable prompt caching
 });
 ```
 
