@@ -1,16 +1,36 @@
 {
   "name": "claudette-ts",
   "version": "1.0.0",
-  "description": "Claudette for Typescript",
+  "description": "A TypeScript wrapper for Anthropic's Node.js SDK that makes Claude API interactions simpler and more ergonomic",
   "license": "MIT",
   "author": "cck",
-  "type": "commonjs",
-  "main": "index.js",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsup",
+    "test": "jest",
+    "prepublishOnly": "npm run build"
   },
+  "keywords": [
+    "anthropic",
+    "claude",
+    "ai",
+    "typescript",
+    "chat",
+    "llm",
+    "wrapper"
+  ],
   "devDependencies": {
+    "@types/jest": "^29.5.12",
     "@types/node": "^22.13.4",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "tsup": "^8.3.6",
     "typescript": "^5.7.3"
   },
   "dependencies": {
