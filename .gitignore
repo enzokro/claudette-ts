@@ -1,0 +1,23 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Project level things
+references/
+
+# Virtual environments
+.venv
+
+# MacOs system files
+.DS_Store
+
+# Environment variables
+.env
+.sesskey
+
+# Data things
+*.csv
