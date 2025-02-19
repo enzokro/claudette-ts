@@ -1,5 +1,6 @@
 // types.ts
-import type { Message, ContentBlock, TextBlock, ToolUseBlock, Usage } from '@anthropic-ai/sdk/resources/messages/index.js';
+import Anthropic from '@anthropic-ai/sdk';
+import { Client } from './client.js';
 
 export type ModelType = 'opus' | 'sonnet' | 'haiku-3' | 'haiku-3-5';
 
@@ -17,22 +18,33 @@ export const PRICING: Record<ModelType, [number, number, number, number]> = {
   'haiku-3-5': [1, 3, 1.25, 0.1]
 };
 
+export type Tool = Anthropic.Tool;
+export type Message = Anthropic.Message;
+export type MessageParam = Anthropic.MessageParam;
+
 export interface ClientOptions {
   model: string;
-  log?: boolean;
-  cache?: boolean;
-  client?: any; // Anthropic client instance
+  apiKey?: string;
+  client?: Anthropic;
 }
 
-export interface ChatOptions extends ClientOptions {
+export interface ChatOptions {
+  model: string;
+  apiKey?: string;
+  client?: Client;
   systemPrompt?: string;
-  tools?: any[];
+  tools?: Anthropic.Tool[];
   temperature?: number;
-  continuePrompt?: string;
+}
+
+export interface ToolLoopOptions {
+  maxSteps?: number;
+  traceFunc?: (messages: Message[]) => void;
+  contFunc?: (message: Message) => boolean;
 }
 
 // Helper functions
-export const findBlock = (response: Message, blockType?: 'text' | 'content' | 'tool' | 'usage'): ContentBlock | undefined => {
+export const findBlock = (response: Message, blockType?: 'text' | 'content' | 'tool' | 'usage'): Message['content'][number] | undefined => {
   if (!blockType) return response.content[0];
   return response.content.find(block => {
     if (blockType === 'text') return 'text' in block;
@@ -54,14 +66,12 @@ export const contents = (response: Message): string => {
   return String(block);
 };
 
-export const calculateCost = (usage: Usage, costs: [number, number, number, number]): number => {
-  const cacheWrite = usage.cache_creation_input_tokens || 0;
-  const cacheRead = usage.cache_read_input_tokens || 0;
-  
+export function calculateCost(usage: Anthropic.Message['usage'], costs: [number, number, number, number]): number {
+  if (!usage) return 0;
   return (
     (usage.input_tokens * costs[0] + 
      usage.output_tokens * costs[1] + 
-     cacheWrite * costs[2] + 
-     cacheRead * costs[3]) / 1e6
+     (usage.cache_creation_input_tokens || 0) * costs[2] + 
+     (usage.cache_read_input_tokens || 0) * costs[3]) / 1e6
   );
-};
+}

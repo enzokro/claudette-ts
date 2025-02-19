@@ -1,3 +1,3 @@
-export { Chat } from './chat';
-export { Client } from './client';
-export * from './types'; 
+export { Chat } from './chat.js';
+export { Client } from './client.js';
+export * from './types.js'; 

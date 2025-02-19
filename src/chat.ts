@@ -1,113 +1,150 @@
 // chat.ts
-import type { Message, MessageCreateParams, ContentBlock } from '@anthropic-ai/sdk/resources/messages/index.js';
+import Anthropic from '@anthropic-ai/sdk';
 import { Client } from './client.js';
-import { ChatOptions, contents } from './types.js'
-
-type Role = 'user' | 'assistant';
+import type { ChatOptions, ToolLoopOptions } from './types.js';
 
 export class Chat {
   private client: Client;
-  private history: Message[] = [];
-  private systemPrompt: string;
-  private tools?: any[];
+  private history: Anthropic.MessageParam[] = [];
+  private systemPrompt?: string;
+  private tools?: Anthropic.Tool[];
+  private toolImplementations: Map<string, Function> = new Map();
   private temperature: number;
-  private continuePrompt?: string;
-  private cache: boolean;
 
   constructor({
     model,
     client,
-    systemPrompt = '',
-    tools = [],
+    systemPrompt,
+    tools,
     temperature = 0,
-    continuePrompt,
-    cache = false
+    ...options
   }: ChatOptions) {
-    this.client = client || new Client({ model, cache });
+    this.client = client ?? new Client({ model, ...options });
     this.systemPrompt = systemPrompt;
     this.tools = tools;
     this.temperature = temperature;
-    this.continuePrompt = continuePrompt;
-    this.cache = cache;
+  }
+
+  registerTool(name: string, implementation: Function) {
+    this.toolImplementations.set(name, implementation);
+  }
+
+  private async executeTool(toolUseBlock: Anthropic.ToolUseBlock): Promise<string> {
+    const implementation = this.toolImplementations.get(toolUseBlock.name);
+    if (!implementation) {
+      throw new Error(`No implementation found for tool: ${toolUseBlock.name}`);
+    }
+
+    try {
+      const result = await implementation(toolUseBlock.input);
+      return String(result);
+    } catch (error) {
+      console.error(`Error executing tool ${toolUseBlock.name}:`, error);
+      return `Error: ${error instanceof Error ? error.message : String(error)}`;
+    }
   }
 
   get cost(): number {
     return this.client.cost;
   }
 
-  private async appendPrompt(prompt?: string) {
-    const prevRole = this.history.length ? 
-      this.history[this.history.length - 1].role as Role : 
-      'assistant';
-
-    if (prompt && prevRole === 'user') {
-      await this.send();
-    }
-
-    if (prompt === undefined && prevRole === 'assistant') {
-      if (!this.continuePrompt) {
-        throw new Error('Prompt must be given after assistant completion, or use continuePrompt');
-      }
-      prompt = this.continuePrompt;
-    }
-
-    if (prompt) {
-      // Create a partial message - the API will fill in the rest
-      const message = {
-        role: 'user',
-        content: [{
-          type: 'text',
-          text: prompt
-        }] as ContentBlock[]
-      };
-      this.history.push(message as unknown as Message);
-    }
-  }
-
   async send(
     prompt?: string,
-    {
-      temperature,
-      max_tokens = 4096,
-      stream = false,
-      tool_choice,
-      ...other
-    }: Partial<MessageCreateParams> = {}
-  ): Promise<Message> {
-    await this.appendPrompt(prompt);
+    options: Partial<Anthropic.MessageCreateParams> = {}
+  ): Promise<Anthropic.Message> {
+    if (prompt) {
+      this.history.push({
+        role: 'user',
+        content: prompt
+      });
+    }
 
-    const params: MessageCreateParams = {
+    const params: Anthropic.MessageCreateParams = {
       messages: this.history,
       model: this.client.model,
-      max_tokens,
-      system: this.systemPrompt,
-      temperature: temperature ?? this.temperature,
-      stream,
-      ...other
+      max_tokens: options.max_tokens ?? 4096,
+      temperature: options.temperature ?? this.temperature,
+      ...options
     };
+
+    if (this.systemPrompt) {
+      params.system = this.systemPrompt;
+    }
 
     if (this.tools?.length) {
       params.tools = this.tools;
     }
 
-    if (tool_choice) {
-      params.tool_choice = tool_choice;
+    const response = await this.client.createMessage(params);
+    this.history.push({
+      role: response.role,
+      content: response.content
+    });
+    return response;
+  }
+
+  async toolloop(
+    prompt?: string,
+    {
+      maxSteps = 10,
+      traceFunc,
+      contFunc = () => true,
+      ...options
+    }: ToolLoopOptions & Partial<Anthropic.MessageCreateParams> = {}
+  ): Promise<Anthropic.Message> {
+    const startHistoryLength = this.history.length;
+    let response = await this.send(prompt, options);
+
+    for (let i = 0; i < maxSteps; i++) {
+      // Check if the response indicates tool use is needed
+      const toolUseBlocks = response.content.filter(block => 
+        'type' in block && block.type === 'tool_use'
+      ) as Anthropic.ToolUseBlock[];
+      
+      if (!toolUseBlocks.length) break;
+
+      if (traceFunc) {
+        const messages = this.client.lastMessage ? [this.client.lastMessage] : [];
+        traceFunc(messages);
+      }
+
+      // Check if we should continue based on the previous message
+      const prevMessage = this.client.lastMessage;
+      if (prevMessage && !contFunc(prevMessage)) break;
+
+      // Execute tools and create tool results
+      const toolResults = await Promise.all(toolUseBlocks.map(async block => ({
+        type: 'tool_result' as const,
+        tool_use_id: block.id,
+        content: await this.executeTool(block)
+      })));
+
+      // Add tool results as a user message
+      this.history.push({
+        role: 'user',
+        content: toolResults
+      });
+
+      response = await this.send(undefined, options);
     }
 
-    const response = await this.client.createMessage(params);
-    this.history.push(response);
+    if (traceFunc) {
+      const messages = this.client.lastMessage ? [this.client.lastMessage] : [];
+      traceFunc(messages);
+    }
+
     return response;
   }
 
   toString(): string {
-    const result = this.client.result;
-    if (!result) return 'No results yet';
+    const lastMessage = this.client.lastMessage;
+    if (!lastMessage) return 'No messages yet';
 
-    const lastMessage = contents(result);
-    const history = this.history
-      .map(m => `**${m.role}**: ${contents(m)}`)
-      .join('\n\n');
+    const text = lastMessage.content
+      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+      .map(block => block.text)
+      .join('\n');
 
-    return `${lastMessage}\n\nHistory:\n${history}\n\nCost: $${this.cost.toFixed(6)}`;
+    return `${text}\n\nCost: $${this.cost.toFixed(6)}`;
   }
 }
