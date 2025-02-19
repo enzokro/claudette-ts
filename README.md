@@ -89,7 +89,7 @@ const chat = new Chat({
 });
 ```
 
-### Custom Tool Implementation
+### Looping Tool Calls
 
 ```typescript
 // Define the tool implementation function
@@ -123,6 +123,7 @@ const chatWithTools = new Chat({
 chatWithTools.registerTool('sum', sum);
 
 // Example usage with toolloop and tracing
+// This will call sum twice, once with 11 and 5, and once with the result and 7
 const response = await chatWithTools.toolloop(
   'What is 11 plus 5 plus 7?',
   {
